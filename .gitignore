@@ -1,0 +1,5 @@
+# Dependency directories
+node_modules/
+
+# API key and Secret ..
+_env.js
