@@ -1,6 +1,4 @@
 'use strict';
-const ccxt = require ('ccxt');
-const ss = require('simple-statistics');
 const fxutil = require('./utils');
 const bf = require('./bitflyer');
 

@@ -1,5 +1,5 @@
 const ccxt = require ('ccxt');
-const env = require('./_env');
+const env = require('../_env');
 const utils = require('./utils');
 
 let ticker;
@@ -20,7 +20,7 @@ exports.checkOrderStatus = async function(id, symbol, status, timeout, interval)
             console.log('order status is ' + status);
             return result;
         }
-        await sleep(interval);
+        await utils.sleep(interval);
     }
 }
 
@@ -63,7 +63,7 @@ exports.cancelAllOrder = async function () {
         for (let i in res) {
             await bf.cancelOrder(res[i].id, res[i].symbol);
         };
-        await sleep(1000);
+        await utils.sleep(1000);
     }
 }
 
@@ -73,6 +73,18 @@ exports.createLimitOrderPair = async function(price, amount, ask_offset, bid_off
     );
     bf.createOrder(
         'BTC/JPY','limit','sell',amount,price + ask_offset,{ "product_code" : "FX_BTC_JPY"}
+    );
+}
+
+exports.createLimitOrder = async function(amount, side, price){
+    return await bf.createOrder(
+        'BTC/JPY','limit',side,amount,price,{ "product_code" : "FX_BTC_JPY"}
+    );
+}
+
+exports.createMarketOrder = async function(amount, side){
+    return await bf.createOrder(
+        'BTC/JPY','market',side,amount,0,{ "product_code" : "FX_BTC_JPY"}
     );
 }
 
@@ -92,23 +104,25 @@ exports.getPositionBySide = async function(){
 }
 
 exports.getCurrentOpenOrder = async function() {
-    let ret;
-    res = await bf.fetchOpenOrders('FX_BTC_JPY');
-    let t;
-    for (let i in res){
-        if (Date.now() - res[i].timestamp > 6000){
-            if (ret === undefined){
-                console.log('ok');
-                ret = res[i];
-                continue;
-            };
-            if (ret.timestamp < res[i].timestamp){
-                console.log('ok');
-                ret = res[i];
-                continue;
-            };
-        };
-    }
+    let ret = [];
+    let orders = await bf.fetchOpenOrders('FX_BTC_JPY');
+    for (let o in orders) {
+        ret.push(orders[o]);
+    };
+    // for (let i in res){
+    //     if (Date.now() - res[i].timestamp > 6000){
+    //         if (ret === undefined){
+    //             console.log('ok');
+    //             ret = res[i];
+    //             continue;
+    //         };
+    //         if (ret.timestamp < res[i].timestamp){
+    //             console.log('ok');
+    //             ret = res[i];
+    //             continue;
+    //         };
+    //     };
+    // }
     return ret;
 }
 
@@ -128,8 +142,12 @@ exports.getOpenOrderLengthBySide = async function() {
 
 exports.startTicker = async function(interval) {
     while(true){
-        await utils.sleep(interval);
-        ticker = await bf.fetch_ticker('BTC/JPY', {"product_code" : "FX_BTC_JPY" });
+        try{
+            await utils.sleep(interval);
+            ticker = await bf.fetch_ticker('BTC/JPY', {"product_code" : "FX_BTC_JPY" });
+        } catch(error) {
+            console.log(error);
+        };
     }
 }
 
@@ -138,3 +156,18 @@ let getTicker = function() {
 }
 
 exports.ticker = getTicker;
+
+exports.getSFD = async function(interval) {
+    while(true){
+        try{
+            await utils.sleep(interval);
+            let ticker_fx = getTicker();
+            let ticker = await bf.fetch_ticker('BTC/JPY', {"product_code" : "BTC_JPY" });
+            let sfd = Math.abs(ticker_fx.last - ticker.last)/ticker_fx.last;
+            console.log(sfd);
+            return sfd;
+        } catch(error) {
+            console.log(error);
+        };
+    }
+}
