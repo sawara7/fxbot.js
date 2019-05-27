@@ -155,19 +155,24 @@ let getTicker = function() {
     return ticker;
 }
 
-exports.ticker = getTicker;
-
-exports.getSFD = async function(interval) {
+let sfd;
+exports.startSFD = async function(interval) {
     while(true){
         try{
             await utils.sleep(interval);
             let ticker_fx = getTicker();
             let ticker = await bf.fetch_ticker('BTC/JPY', {"product_code" : "BTC_JPY" });
-            let sfd = Math.abs(ticker_fx.last - ticker.last)/ticker_fx.last;
+            sfd = Math.abs(ticker_fx.last - ticker.last)/ticker.last * 100;
             console.log(sfd);
-            return sfd;
         } catch(error) {
             console.log(error);
         };
     }
-}
+};
+
+let getSFD = function() {
+    return sfd;
+};
+
+exports.ticker = getTicker;
+exports.sfd = getSFD;

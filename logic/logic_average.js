@@ -24,13 +24,14 @@ let calcAverage = async function() {
 }
 
 let doTrade = async function() {
-    let max_diff = 1;
-    let min_diff = -1;
-    let direction = 'buy';
     let pos;
+    const TARGET_AMOUNT = 0.05;
     while(true){
         await fxutil.sleep(2000);
         try{
+            if (bf.sfd() > 4.5){
+                continue;
+            };
             pos = await bf.getPositionBySide();
         }catch(error){
             console.log(error);
@@ -41,16 +42,16 @@ let doTrade = async function() {
             if( 200 < difference && pos.buy === 0){
                 await bf.cancelAllOrder();
                 if (pos.sell >0){
-                    await bf.createMarketOrder(0.01, 'buy');
+                    await bf.createMarketOrder(pos.sell, 'buy');
                 }
-                await bf.createLimitOrderPair(tk.bid, 0.01, 400, -10);
+                await bf.createLimitOrderPair(tk.bid, TARGET_AMOUNT, 400, -10);
             };
             if(-200 > difference && pos.sell === 0){
                 await bf.cancelAllOrder();
                 if (pos.buy >0){
-                    await bf.createMarketOrder(0.01, 'sell');
+                    await bf.createMarketOrder(pos.buy, 'sell');
                 };
-                await bf.createLimitOrderPair(tk.ask, 0.01, -10, 400);
+                await bf.createLimitOrderPair(tk.ask, TARGET_AMOUNT, -10, 400);
             };
         } catch(error) {
             await fxutil.sleep(10000);
@@ -62,6 +63,7 @@ let doTrade = async function() {
 
 exports.doTrade = async () => {
     bf.startTicker(500);
+    bf.startSFD(10000);
     doTrade();
     calcAverage();
 };
