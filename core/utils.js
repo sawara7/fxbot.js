@@ -1,3 +1,5 @@
+const ss = require('simple-statistics');
+
 exports.sleep = msec => new Promise(resolve => setTimeout(resolve, msec));
 
 exports.getCorrel = function(list, value, length) {

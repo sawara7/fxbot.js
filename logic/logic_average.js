@@ -5,6 +5,9 @@ const bf = require('../core/bitflyer');
 let average  = 0;
 let difference = 0;
 let tk;
+let difference_list = [0,0];
+let slope = 0;
+let sum_slope = 0;
 let calcAverage = async function() {
     let last_list = [];
     while(true){
@@ -19,7 +22,9 @@ let calcAverage = async function() {
         for (let i in last_list) {sum += last_list[i]};
         average = sum/last_list.length;
         difference = Math.ceil(tk.last - average);
-        console.log('ave: ' + Math.ceil(average) + ' last: ' + tk.last + ' difference: ' + difference);
+        slope = await fxutil.getSlope(difference_list, difference, 15);
+        sum_slope += slope;
+        console.log('ave: ' + Math.ceil(average) + ' last: ' + tk.last + ' difference: ' + difference + ' dslope: ' + slope + ' sum_slope: ' + sum_slope );
     };    
 }
 
@@ -27,7 +32,7 @@ let doTrade = async function() {
     let after_trade = false;
     let pos;
     let previous_side = 'sell';
-    const TARGET_AMOUNT = 0.01;
+    const TARGET_AMOUNT = 0.02;
     while(true){
         await fxutil.sleep(2500);
         try{
@@ -41,21 +46,21 @@ let doTrade = async function() {
             continue;
         }
         try {
-            if( 300 < difference && !after_trade && previous_side === 'sell'){
+            if( sum_slope > 1 && previous_side === 'sell'){
                 await bf.cancelAllOrder();
                 if (pos.sell >0){
                     await bf.createMarketOrder(pos.sell, 'buy');
                 };
-                bf.createLimitOrderPairAwait(tk.ask, 400, TARGET_AMOUNT, 'buy');
+                bf.createLimitOrderPairAwait(tk.ask, 300, TARGET_AMOUNT, 'buy');
                 after_trade = true;
                 previous_side = bf.change_side(previous_side);
             };
-            if( -300 > difference && !after_trade && previous_side === 'buy'){
+            if( -1 > sum_slope && previous_side === 'buy'){
                 await bf.cancelAllOrder();
                 if (pos.buy >0){
                     await bf.createMarketOrder(pos.buy, 'sell');
                 };
-                bf.createLimitOrderPairAwait(tk.bid, 400, TARGET_AMOUNT, 'sell');
+                bf.createLimitOrderPairAwait(tk.bid, 300, TARGET_AMOUNT, 'sell');
                 after_trade = true;
                 previous_side = bf.change_side(previous_side);
             };
