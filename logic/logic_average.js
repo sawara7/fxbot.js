@@ -12,7 +12,7 @@ let calcAverage = async function() {
         tk = bf.ticker(); 
         if (tk === undefined){continue};
         last_list.push(tk.last);
-        if (last_list.length > 800){
+        if (last_list.length > 200){
             last_list.shift();
         };
         let sum = 0;
@@ -24,12 +24,14 @@ let calcAverage = async function() {
 }
 
 let doTrade = async function() {
+    let after_trade = false;
     let pos;
-    const TARGET_AMOUNT = 0.05;
+    let previous_side = 'sell';
+    const TARGET_AMOUNT = 0.01;
     while(true){
-        await fxutil.sleep(2000);
+        await fxutil.sleep(2500);
         try{
-            if (bf.sfd() > 4.5){
+            if (bf.sfd() > 4.85){
                 continue;
             };
             pos = await bf.getPositionBySide();
@@ -39,23 +41,28 @@ let doTrade = async function() {
             continue;
         }
         try {
-            if( 200 < difference && pos.buy === 0){
+            if( 300 < difference && !after_trade && previous_side === 'sell'){
                 await bf.cancelAllOrder();
                 if (pos.sell >0){
                     await bf.createMarketOrder(pos.sell, 'buy');
-                }
-                await bf.createLimitOrderPair(tk.bid, TARGET_AMOUNT, 400, -10);
+                };
+                bf.createLimitOrderPairAwait(tk.ask, 400, TARGET_AMOUNT, 'buy');
+                after_trade = true;
+                previous_side = bf.change_side(previous_side);
             };
-            if(-200 > difference && pos.sell === 0){
+            if( -300 > difference && !after_trade && previous_side === 'buy'){
                 await bf.cancelAllOrder();
                 if (pos.buy >0){
                     await bf.createMarketOrder(pos.buy, 'sell');
                 };
-                await bf.createLimitOrderPair(tk.ask, TARGET_AMOUNT, -10, 400);
+                bf.createLimitOrderPairAwait(tk.bid, 400, TARGET_AMOUNT, 'sell');
+                after_trade = true;
+                previous_side = bf.change_side(previous_side);
             };
+            after_trade = false;
         } catch(error) {
-            await fxutil.sleep(10000);
             console.log(error);
+            await fxutil.sleep(10000);
             continue;
         };
     };
