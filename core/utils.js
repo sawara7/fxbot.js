@@ -47,4 +47,20 @@ exports.getSlopeAndCorrel = function(list, value, length) {
     let s = ss.linearRegression(data).m;
     let c = ss.sampleCorrelation(timelist, list);
     return {'s':s, 'c':c};
-}
+};
+
+const channelDict = {
+    "ticker":{
+        "btcjpy":"lightning_ticker_BTC_JPY",
+        "fxbtcjpy":"lightning_ticker_FX_BTC_JPY",
+    },
+    "execution":{
+        "btcjpy":"lightning_executions_BTC_JPY",
+        "fxbtcjpy":"lightning_executions_FX_BTC_JPY",
+    },
+    "board":{
+        "btcjpy":"lightning_board_BTC_JPY",
+        "fxbtcjpy":"lightning_board_FX_BTC_JPY",
+    }
+};
+exports.channelDict = channelDict;
