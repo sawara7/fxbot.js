@@ -1,6 +1,6 @@
 'use strict';
 const fxutil = require('../core/utils');
-const bf = require('../core/bitflyer');
+const bf = require('../core/bitflyer/api');
 const ex = require('../core/bitflyer/realtime/execution');
 
 let executionsSize;
@@ -89,6 +89,6 @@ exports.doTrade = async () => {
     bf.startTicker(10000);
     bf.startSFD(10000);
     calcIndicator();
-    await fxutil.sleep(5000);
+    await fxutil.sleep(1000 * 60 * 5);
     doTrade();
 };

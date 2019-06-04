@@ -1,6 +1,6 @@
 const ccxt = require ('ccxt');
-const env = require('../_env');
-const utils = require('./utils');
+const env = require('../../_env');
+const utils = require('../utils');
 
 let ticker;
 let bf = new ccxt.bitflyer ({
@@ -13,7 +13,7 @@ function changeSide(side) {
         return 'sell';
     } else if (side == 'SELL' || side == 'sell'){
         return 'buy';
-    }
+    };
 };
 
 exports.change_side =changeSide;
@@ -33,26 +33,31 @@ async function closeAllPosition() {
         };
         if (size < 0.01){
             return true;
-        }
+        };
         let order = await bf.createOrder("FX_BTC_JPY", 'market', changeSide(side), size);
         await utils.sleep(1000);
-    }    
-}
+    };
+};
 exports.closeAllPosition = closeAllPosition;
 
  async function cancelAllOrder() {
     let res;
     while(true){
-        res = await bf.fetchOpenOrders('FX_BTC_JPY');
-        if (res.length === 0) {
-            return true;
+        try {
+            res = await bf.fetchOpenOrders('FX_BTC_JPY');
+            if (res.length === 0) {
+                return true;
+            };
+            for (let i in res) {
+                await bf.cancelOrder(res[i].id, res[i].symbol);
+            };
+            await utils.sleep(1000);
+        }catch(error){
+            console.log(error);
+            await utils.sleep(1000);
         };
-        for (let i in res) {
-            await bf.cancelOrder(res[i].id, res[i].symbol);
-        };
-        await utils.sleep(1000);
-    }
-}
+    };
+};
 exports.cancelAllOrder = cancelAllOrder;
 
 async function checkOrderStatus(id, symbol, status, timeout, interval, losscut){
@@ -70,6 +75,48 @@ async function checkOrderStatus(id, symbol, status, timeout, interval, losscut){
             }
             if (losscut !== undefined){
                 if (losscut(result) === true){
+                    return 'losscut';
+                };
+            };
+            await utils.sleep(interval);
+        }catch(error){
+            console.log(error);
+            await utils.sleep(interval);
+        };
+    };
+};
+exports.checkOrderStatus = checkOrderStatus;
+
+async function checkOrderStatusByPosition(position, timeout, interval, losscut){
+    let time = 0;
+    while (true) {
+        try{
+            time += interval;
+            if (timeout !== 0 && time > timeout){
+                return 'timeout';
+            }
+
+            let buy_size = 0;
+            let sell_size = 0;
+            let price = 0;
+            let res = await bf.private_get_getpositions({'product_code':'FX_BTC_JPY'});
+            for (let i in res) {
+                if (res[i].side === 'BUY'){
+                    buy_size += res[i].size;
+                }else if (res[i].side === 'SELL'){
+                    sell_size += res[i].size;
+                };
+                price += res[i].price * res[i].size;
+            };
+            price = price / (buy_size+sell_size);
+
+            let result = { 'size': { 'buy': buy_size, 'sell': sell_size } , 'price':price };
+            if (position.buy === buy_size && position.sell === sell_size){
+                return result;
+            };
+
+            if (losscut !== undefined){
+                if (losscut(result) === true){
                     await cancelAllOrder();
                     await closeAllPosition();
                     return result;
@@ -81,8 +128,8 @@ async function checkOrderStatus(id, symbol, status, timeout, interval, losscut){
             await utils.sleep(interval);
         };
     };
-}
-exports.checkOrderStatus = checkOrderStatus;
+};
+exports.checkOrderStatusByPosition = checkOrderStatusByPosition;
 
 exports.createLimitOrderPair = async function(price, amount, ask_offset, bid_offset) {
     bf.createOrder(
@@ -91,13 +138,18 @@ exports.createLimitOrderPair = async function(price, amount, ask_offset, bid_off
     bf.createOrder(
         'BTC/JPY','limit','sell',amount,price + ask_offset,{ "product_code" : "FX_BTC_JPY"}
     );
-}
+};
 
 exports.createLimitOrderPairAwait = async function(price, offset, amount, side, losscut) {
     let od1 = await bf.createOrder(
         'BTC/JPY','limit', side, amount, price ,{ "product_code" : "FX_BTC_JPY"}
     );
-    let status = await checkOrderStatus(od1.id, 'FX_BTC_JPY', 'closed', 0, 1000, undefined);
+    let status = await checkOrderStatus(od1.id, 'FX_BTC_JPY', 'closed', 1000 * 60 *2, 1000, undefined);
+    if (status === 'timeout' || status === 'losscut'){
+        await cancelAllOrder();
+        await closeAllPosition();
+        return
+    };
     let close_price = 0;
     if (status.info.average_price > 100){
         if (side === 'sell'){
@@ -111,30 +163,35 @@ exports.createLimitOrderPairAwait = async function(price, offset, amount, side, 
         }else if (side === 'buy'){
             close_price = status.info.price + offset;
         };
-    }
+    };
     let od2 = await bf.createOrder(
         'BTC/JPY','limit', changeSide(side), amount, close_price ,{ "product_code" : "FX_BTC_JPY"}
     );
-    let status2 = await checkOrderStatus(od2.id, 'FX_BTC_JPY', 'closed', 0, 1000, losscut);
+    let status2 = await checkOrderStatus(od2.id, 'FX_BTC_JPY', 'closed', 1000 * 60 * 10, 1000, losscut);
+    if (status2 === 'timeout' || status2 === 'losscut'){
+        await cancelAllOrder();
+        await closeAllPosition();
+        return
+    };
     if (side === 'sell'){
         console.log(status.info.price - status2.info.price);
     }else{
         console.log(status2.info.price - status.info.price);
-    }
-}
+    };
+};
 
 
 exports.createLimitOrder = async function(amount, side, price){
     return await bf.createOrder(
         'BTC/JPY','limit',side,amount,price,{ "product_code" : "FX_BTC_JPY"}
     );
-}
+};
 
 exports.createMarketOrder = async function(amount, side){
     return await bf.createOrder(
         'BTC/JPY','market',side,amount,0,{ "product_code" : "FX_BTC_JPY"}
     );
-}
+};
 
 exports.getPositionBySide = async function(){
     let res;
@@ -146,10 +203,10 @@ exports.getPositionBySide = async function(){
             buy_size += res[i].size;
         }else if (res[i].side === 'SELL'){
             sell_size += res[i].size;
-        }
+        };
     };
     return {'buy':buy_size, 'sell':sell_size};
-}
+};
 
 exports.getCurrentOpenOrder = async function() {
     let ret = [];
@@ -172,7 +229,7 @@ exports.getCurrentOpenOrder = async function() {
     //     };
     // }
     return ret;
-}
+};
 
 exports.getOpenOrderLengthBySide = async function() {
     let res = await bf.fetchOpenOrders('FX_BTC_JPY');
@@ -186,7 +243,7 @@ exports.getOpenOrderLengthBySide = async function() {
         }; 
     }
     return ret;
-}
+};
 
 exports.startTicker = async function(interval) {
     while(true){
@@ -196,12 +253,12 @@ exports.startTicker = async function(interval) {
         } catch(error) {
             console.log(error);
         };
-    }
-}
+    };
+};
 
 let getTicker = function() {
     return ticker;
-}
+};
 
 let sfd;
 exports.startSFD = async function(interval) {
@@ -215,7 +272,7 @@ exports.startSFD = async function(interval) {
         } catch(error) {
             console.log(error);
         };
-    }
+    };
 };
 
 let getSFD = function() {

@@ -1,6 +1,6 @@
 'use strict';
 const fxutil = require('../core/utils');
-const bf = require('../core/bitflyer');
+const bf = require('../core/bitflyer/api');
 const pt = require('percentile');
 
 let average  = 0;

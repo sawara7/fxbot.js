@@ -1,6 +1,6 @@
 'use strict';
-const fxutil = require('./utils');
-const bf = require('./bitflyer');
+const fxutil = require('./core/utils');
+const bf = require('./core/bitflyer/api');
 
 let doTrade = async function() {
     let price;
