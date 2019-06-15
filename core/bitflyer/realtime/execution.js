@@ -4,6 +4,11 @@ const pt = require("percentile");
 
 let executions = {
     "last":0,
+    "last_buy":0,
+    "last_sell":0,
+    "last_buy_diff":0,
+    "last_sell_diff":0,
+    "splead":0,
     "all":{
         "price":[],
         "size":[],
@@ -20,6 +25,7 @@ let executions = {
         "time":[]
     }
 }
+exports.executions = executions;
 
 const startExecutions = async function (pair) {
     io.connectSocketIO(util.channelDict.execution[pair], parseMessage);
@@ -27,8 +33,16 @@ const startExecutions = async function (pair) {
 exports.startExecutions = startExecutions;
 
 const parseMessage = function(channelName, message){
+    let previous_last_buy = executions.last_buy;
+    let previous_last_sell = executions.last_sell;
     for (i in message){
         executions.last = message[i];
+        if (message[i].side === 'BUY'){
+            executions.last_buy = message[i].price;
+        }else if (message[i].side === 'SELL'){
+            executions.last_sell = message[i].price;
+        }
+        executions.splead = executions.last_buy - executions.last_sell;
         executions.all.price.push(message[i].price);
         executions.all.size.push(message[i].size);
         executions.all.time.push(new Date(message[i].exec_date).getTime());
@@ -45,6 +59,8 @@ const parseMessage = function(channelName, message){
             continue;
         };
     };
+    executions.last_sell_diff = executions.last_sell - previous_last_sell;
+    executions.last_buy_diff = executions.last_buy - previous_last_buy;
 };
 
 let trimmingProcID;
@@ -84,10 +100,10 @@ const startTrimData = function(seconds, interval){
 };
 exports.startTrimData = startTrimData;
 
-const getPercentile = function(percentile, seconds){
+const getPercentile = function(percentile, start, end){
     let plist = [];
     for (let i in executions.buy.price){
-        if (executions.buy.time[i] > Date.now() - seconds*1000){
+        if (Date.now() - start * 1000 < executions.buy.time[i] && executions.buy.time[i] < Date.now() - end * 1000){
             plist.push(executions.buy.price[i]);
         };
     };
@@ -95,18 +111,18 @@ const getPercentile = function(percentile, seconds){
 }
 exports.getPercentile = getPercentile;
 
-const getSize = function(seconds){
+const getSize = function(start, end){
     let sum = {
         "buy": 0,
         "sell":0
     }
     for(let i in executions.buy.size){
-        if (executions.buy.time[i] > Date.now() - seconds*1000){
+        if (Date.now() - start * 1000 < executions.buy.time[i] && executions.buy.time[i] < Date.now() - end * 1000){
             sum.buy += executions.buy.size[i];
         };
     };
     for(let i in executions.sell.size){
-        if (executions.sell.time[i] > Date.now() - seconds*1000){
+        if (Date.now() - start * 1000 < executions.sell.time[i] && executions.sell.time[i] < Date.now() - end * 1000){
             sum.sell += executions.sell.size[i];
         };
     };
@@ -114,10 +130,11 @@ const getSize = function(seconds){
 }
 exports.getSize = getSize;
 
-const calcCandle = function(seconds, list){
+const calcCandle = function(start, end, list){
     let l = [];
     for(let i in list.time){
-        if (list.time[i] > Date.now() - seconds*1000){
+        if (list.time[i] > Date.now() - start*1000 &&
+            list.time[i] < Date.now() - end*1000){
             l.push(list.price[i]);
         };
     };
@@ -129,18 +146,18 @@ const calcCandle = function(seconds, list){
     };
 };
 
-const getCandle = function(seconds){
-    return calcCandle(seconds, executions.all);
+const getCandle = function(start,end){
+    return calcCandle(start, end, executions.all);
 }
 exports.getCandle = getCandle;
 
-const getCandleBuySide = function(seconds){
-    return calcCandle(seconds, executions.buy);
+const getCandleBuySide = function(start, end){
+    return calcCandle(start, end, executions.buy);
 }
 exports.getCandleBuySide = getCandleBuySide;
 
-const getCandleSellSide = function(seconds){
-    return calcCandle(seconds, executions.sell);
+const getCandleSellSide = function(start, end){
+    return calcCandle(start, end, executions.sell);
 }
 exports.getCandleSellSide = getCandleSellSide;
 

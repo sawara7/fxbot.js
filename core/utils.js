@@ -14,6 +14,14 @@ exports.getCorrel = function(list, value, length) {
     return ss.sampleCorrelation(timelist, list);
 }
 
+exports.getCorrel = function(list) {
+    let timelist = []
+    for (let i in list){
+        timelist.push(Number(i));
+    }
+    return ss.sampleCorrelation(timelist, list);
+}
+
 exports.getSlope = function(list, value, length) {
     let timelist = []
     let data = []
@@ -21,6 +29,19 @@ exports.getSlope = function(list, value, length) {
     if (list.length > length){
         list.shift();
     }
+    for (let i in list){
+        timelist.push(Number(i));
+    }
+    for (let j in list){
+        data.push([timelist[j], Number(list[j] - list[0])]);
+    }
+    let reg = ss.linearRegression(data);
+    return reg.m;
+}
+
+exports.getSlope = function(list) {
+    let timelist = []
+    let data = []
     for (let i in list){
         timelist.push(Number(i));
     }

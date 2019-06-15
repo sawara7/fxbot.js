@@ -8,6 +8,13 @@ let bf = new ccxt.bitflyer ({
     secret: env.secret}
 );
 
+let trade_result = {
+    "positive" : 0,
+    "negative" :0,
+    "failed":0
+};
+exports.trade_result = trade_result;
+
 function changeSide(side) {
     if (side == 'BUY' || side == 'buy') {
         return 'sell';
@@ -74,7 +81,8 @@ async function checkOrderStatus(id, symbol, status, timeout, interval, losscut){
                 return result;
             }
             if (losscut !== undefined){
-                if (losscut(result) === true){
+                let ret = await losscut(result);
+                if (ret === true){
                     return 'losscut';
                 };
             };
@@ -144,10 +152,11 @@ exports.createLimitOrderPairAwait = async function(price, offset, amount, side, 
     let od1 = await bf.createOrder(
         'BTC/JPY','limit', side, amount, price ,{ "product_code" : "FX_BTC_JPY"}
     );
-    let status = await checkOrderStatus(od1.id, 'FX_BTC_JPY', 'closed', 1000 * 60 *2, 1000, undefined);
+    let status = await checkOrderStatus(od1.id, 'FX_BTC_JPY', 'closed', 1000 * 10, 500, undefined);
     if (status === 'timeout' || status === 'losscut'){
         await cancelAllOrder();
         await closeAllPosition();
+        trade_result.failed ++;
         return
     };
     let close_price = 0;
@@ -167,19 +176,48 @@ exports.createLimitOrderPairAwait = async function(price, offset, amount, side, 
     let od2 = await bf.createOrder(
         'BTC/JPY','limit', changeSide(side), amount, close_price ,{ "product_code" : "FX_BTC_JPY"}
     );
-    let status2 = await checkOrderStatus(od2.id, 'FX_BTC_JPY', 'closed', 1000 * 60 * 10, 1000, losscut);
+    let status2 = await checkOrderStatus(od2.id, 'FX_BTC_JPY', 'closed', 0, 1000, losscut);
     if (status2 === 'timeout' || status2 === 'losscut'){
+        trade_result.negative ++;
         await cancelAllOrder();
         await closeAllPosition();
-        return
+        return;
     };
     if (side === 'sell'){
-        console.log(status.info.price - status2.info.price);
+        console.log("======OK======", status.info.price - status2.info.price);
     }else{
-        console.log(status2.info.price - status.info.price);
+        console.log("======OK======", status2.info.price - status.info.price);
     };
+    trade_result.positive ++;
 };
 
+exports.createMarketLimitOrder = async function(offset, amount, side) {
+    let od1 = await createMarketOrder2(amount, side);
+    let status = await checkOrderStatus(od1.id, 'FX_BTC_JPY', 'closed', 1000 * 10, 500, undefined);
+    if (status === 'timeout' || status === 'losscut'){
+        await cancelAllOrder();
+        await closeAllPosition();
+        trade_result.failed ++;
+        return
+    };
+    let close_price = 0;
+    if (status.info.average_price > 100){
+        if (side === 'sell'){
+            close_price = status.info.average_price - offset;
+        }else if (side === 'buy'){
+            close_price = status.info.average_price + offset;
+        };
+    }else{
+        if (side === 'sell'){
+            close_price = status.info.price - offset;
+        }else if (side === 'buy'){
+            close_price = status.info.price + offset;
+        };
+    };
+    let od2 = await bf.createOrder(
+        'BTC/JPY','limit', changeSide(side), amount, close_price ,{ "product_code" : "FX_BTC_JPY"}
+    );
+};
 
 exports.createLimitOrder = async function(amount, side, price){
     return await bf.createOrder(
@@ -187,11 +225,13 @@ exports.createLimitOrder = async function(amount, side, price){
     );
 };
 
-exports.createMarketOrder = async function(amount, side){
+async function createMarketOrder2(amount, side){
     return await bf.createOrder(
         'BTC/JPY','market',side,amount,0,{ "product_code" : "FX_BTC_JPY"}
     );
 };
+
+exports.createMarketOrder2 = createMarketOrder2;
 
 exports.getPositionBySide = async function(){
     let res;
@@ -254,6 +294,10 @@ exports.startTicker = async function(interval) {
             console.log(error);
         };
     };
+};
+
+exports.getTickerOneshot = async function(){
+    return await bf.fetch_ticker('BTC/JPY', {"product_code" : "FX_BTC_JPY" });
 };
 
 let getTicker = function() {
