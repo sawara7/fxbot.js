@@ -35,10 +35,12 @@ async function closeAllPosition() {
             return true;
         };
         for (let i in res) {
-            size += res[i].size;
-            side = res[i].side;
+            if (res[i].size > 0){
+                size += res[i].size;
+                side = res[i].side;
+            };
         };
-        if (size < 0.01){
+        if (size !== Number && size < 0.01){
             return true;
         };
         let order = await bf.createOrder("FX_BTC_JPY", 'market', changeSide(side), size);
@@ -217,6 +219,7 @@ exports.createMarketLimitOrder = async function(offset, amount, side) {
     let od2 = await bf.createOrder(
         'BTC/JPY','limit', changeSide(side), amount, close_price ,{ "product_code" : "FX_BTC_JPY"}
     );
+    return od2;
 };
 
 exports.createLimitOrder = async function(amount, side, price){

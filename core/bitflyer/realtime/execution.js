@@ -175,3 +175,20 @@ exports.stopTrimData = stopTrimData;
 //             console.log("s_range:", getSize(1));
 //         },1000);
 // };
+
+const CalcVolumeSpeed = function(amount){
+    let volume_speed = {};
+    for (let side of ["buy","sell"]){
+        let v = amount;
+        let t = executions[side].time[executions[side].time.length - 1];
+        for (let i = executions[side].size.length - 1; i > -1; i--){
+            v -= executions[side].size[i];
+            if (v < 0){
+                volume_speed[side] = t - executions[side].time[i];
+                break;
+            };
+        };
+    };
+    return volume_speed;
+};
+exports.CalcVolumeSpeed = CalcVolumeSpeed;
