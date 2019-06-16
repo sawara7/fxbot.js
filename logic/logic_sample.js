@@ -1,37 +1,48 @@
 'use strict';
-const fxutil = require('./core/utils');
-const bf = require('./core/bitflyer/api');
+const fxutil = require('../core/utils');
+const bf = require('../core/bitflyer/api');
+const bd = require('../core/bitflyer/realtime/board');
+const ex = require('../core/bitflyer/realtime/execution');
 
-let doTrade = async function() {
-    let price;
+let info;
+let info2;
+
+let losscut = function(result) {
+    if (result.side === "sell" && info.asks.size > info.bids.size * 1.5 ){
+        return true;
+    };
+    if (result.side === "buy" && info.bids.size > info.asks.size*1.5){
+        return true;
+    }
+};
+
+exports.doTrade = async function() {
+    bd.startBoard("fxbtcjpy");
+    ex.startExecutions("fxbtcjpy");
+    ex.startTrimData(600,400);
+    let side = "none";
+    setInterval(
+        () => {
+            info  = bd.getDiff(60000,3000);
+            info2 = ex.getSize(10,0);
+            console.log(Math.ceil(info.asks.diff), Math.ceil(info.asks.size), Math.ceil(info2.buy), Math.ceil(info.bids.diff), Math.ceil(info.bids.size), Math.ceil(info2.sell), Math.ceil(ex.executions.last_buy),Math.ceil(ex.executions.last_sell));
+        }, 500
+    );
+
     while(true){
-        await fxutil.sleep(10000);
-        let tk = bf.ticker(); 
-        if ( tk === undefined){
-            continue;
-        };
+        await fxutil.sleep(1000);
         try {
-            let pos = await bf.getPositionBySide();
-            let od = await bf.getCurrentOpenOrder();
-            let l  = await bf.getOpenOrderLengthBySide();
-            if (od === undefined){
-                // await bf.createLimitOrderPair(tk.ask, 0.01, 110, -10);
-            } else if(od.side === 'sell' && pos.buy <= 0.01){
-                await bf.createLimitOrderPair(tk.bid, 0.01, -10, 110);
-            } else if(od.side === 'buy' && pos.sell <= 0.01){
-                await bf.createLimitOrderPair(tk.ask, 0.01, 110, -10);
-            } else {
-                // await bf.createLimitOrderPair(tk.ask, 0.01, 110, -10);
+            if (info.asks.size * 1.5 < info.bids.size ){
+                // await bf.createLimitOrderPairAwait(ex.executions.last_sell-100, 1500, 0.01, "buy",losscut);
+                side = "buy";
             };
-            console.log(pos, od.side);
+            if (info.asks.size > info.bids.size * 1.5){
+                // await bf.createLimitOrderPairAwait(ex.executions.last_buy + 100, 1500, 0.01, "sell",losscut);
+                side = "sell";
+            };
         } catch(error) {
+            side = "none";
             console.log(error);
         };
     };
-}
-
-let ret;
-(async () => {
-    bf.startTicker(500);
-    doTrade();
-})();
+};
