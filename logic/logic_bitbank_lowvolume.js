@@ -2,10 +2,7 @@
 const fxutil = require('../core/utils');
 const bb = require('../core/bitbank/bitbank');
 
-let doTrade = async function() {
-    await bb.doTrade();
-};
-
 exports.doTrade = async () => {
-    doTrade();
+    await bb.BuyLimitByLowVolume('btc_jpy', 0.01);
+    await fxutil.sleep(10000);
 };

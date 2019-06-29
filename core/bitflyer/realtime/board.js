@@ -31,6 +31,45 @@ const parseMessage = function(channelName, message){
     board["middle"] = message.mid_price;
 };
 
+const getMax = function(price, range){
+    let ret = {
+        "asks" : {
+            "size":0,
+            "price":0
+        },
+        "bids" : {
+            "size":0,
+            "price":0
+        }
+    };
+    for (let side of ["asks","bids"]){
+        for (let key in board[side]){
+            if (key > price + range || key < price - range){
+                continue;
+            };
+            if (ret[side].size < board[side][key].size){
+                ret[side].size = board[side][key].size;
+                ret[side].price = key;
+            }
+        }
+    }
+    return ret;
+}
+exports.getMax = getMax;
+
+const showAll = function(){
+    for (let side of ["asks","bids"]){
+        console.log(side);
+        for (let key in board[side]){
+            if (board[side][key].size > 10){
+                console.log(key, board[side][key].size, board[side][key].diff);
+            };
+        }
+    }
+    return ret;
+}
+exports.showAll = showAll;
+
 const getDiff = function(time, range){
     let ret = {};
     for (let side of ["asks","bids"]){

@@ -4,11 +4,29 @@
     // 詳細情報は次を確認してください: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+
+
         {
             "type": "node",
             "request": "launch",
-            "name": "Launch Program",
-            "program": "${workspaceFolder}\\main.js"
+            "name": "bitbankbot",
+            "program": "${workspaceFolder}\\main_bitbank.js"
+        },{
+            "type": "node",
+            "request": "launch",
+            "name": "bitflyerbot",
+            "program": "${workspaceFolder}\\main_bitflyer.js"
+        },{
+            "type": "node",
+            "request": "launch",
+            "name": "oandabot",
+            "program": "${workspaceFolder}\\main_oanda.js"
+        },{
+            "type": "node",
+            "request": "launch",
+            "name": "oandabot2",
+            "program": "${workspaceFolder}\\main_oanda2.js"
         }
+
     ]
 }

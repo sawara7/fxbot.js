@@ -1,5 +1,5 @@
 'use strict';
-const logic = require('./logic/logic_sample');
+const logic = require('./logic/logic_sfd');
 
 let ret;
 (async () => {

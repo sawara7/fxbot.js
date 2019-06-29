@@ -6,39 +6,41 @@ const ex = require('../core/bitflyer/realtime/execution');
 
 let info;
 let info2;
+let side = "none";
 
 let losscut = function(result) {
-    if (result.side === "sell" && info.asks.size > info.bids.size * 1.5 ){
+    if ((info.asks.size - info.bids.size > 20) && (info2.buy - info2.sell < -20) && side === "buy"){
         return true;
     };
-    if (result.side === "buy" && info.bids.size > info.asks.size*1.5){
+    if ((info.asks.size - info.bids.size < -20) && (info2.buy - info2.sell > 20) && side === "sell"){
         return true;
-    }
+    };
 };
 
 exports.doTrade = async function() {
     bd.startBoard("fxbtcjpy");
     ex.startExecutions("fxbtcjpy");
     ex.startTrimData(600,400);
-    let side = "none";
     setInterval(
         () => {
             info  = bd.getDiff(60000,3000);
             info2 = ex.getSize(10,0);
-            console.log(Math.ceil(info.asks.diff), Math.ceil(info.asks.size), Math.ceil(info2.buy), Math.ceil(info.bids.diff), Math.ceil(info.bids.size), Math.ceil(info2.sell), Math.ceil(ex.executions.last_buy),Math.ceil(ex.executions.last_sell));
+            console.log(Math.ceil(info.asks.size - info.bids.size), Math.ceil(info2.buy - info2.sell), Math.ceil(info2.buy));
         }, 500
     );
 
     while(true){
         await fxutil.sleep(1000);
         try {
-            if (info.asks.size * 1.5 < info.bids.size ){
-                // await bf.createLimitOrderPairAwait(ex.executions.last_sell-100, 1500, 0.01, "buy",losscut);
-                side = "buy";
-            };
-            if (info.asks.size > info.bids.size * 1.5){
-                // await bf.createLimitOrderPairAwait(ex.executions.last_buy + 100, 1500, 0.01, "sell",losscut);
+            if ((info.asks.size - info.bids.size > 25) && (info2.buy - info2.sell < -25) ){
                 side = "sell";
+                await bf.createLimitOrderPairAwait(ex.executions.last_sell-100, 1000, 0.04, "sell",losscut);
+                side = "none";
+            };
+            if ((info.asks.size - info.bids.size < -25) && (info2.buy - info2.sell > 25) ){
+                side = "buy";
+                await bf.createLimitOrderPairAwait(ex.executions.last_buy + 100, 1000, 0.04, "buy",losscut);
+                side = "none";
             };
         } catch(error) {
             side = "none";
