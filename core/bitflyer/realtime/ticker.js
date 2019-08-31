@@ -15,10 +15,10 @@ exports.startTicker = startTicker;
 const parseMessage = function(channelName, message){
     ticker[message.product_code] = message;
     if (message.product_code === "BTC_JPY"){
-        ticker.sfdSellPrice = Math.ceil(message.best_ask * 1.0501);
-        ticker.sfdBuyPrice = Math.ceil(message.best_ask * 1.0499);
+        ticker.sfdSellPrice = Math.ceil(message.best_bid * 1.050);
+        ticker.sfdBuyPrice = Math.ceil(message.best_bid * 1.0499);
         if ("FX_BTC_JPY" in ticker){
-            console.log(ticker.sfdPrice,ticker.FX_BTC_JPY.ltp);
+            console.log(ticker.sfdSellPrice,ticker.FX_BTC_JPY.ltp, ticker.sfdSellPrice<ticker.FX_BTC_JPY.ltp);
         };
     };
 };

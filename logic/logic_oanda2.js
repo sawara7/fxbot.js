@@ -2,35 +2,135 @@
 const fxutil = require('../core/utils');
 const oa = require('../core/oanda/api');
 
-let MarketOrderRequest = {
-    'instrument': 'USD_JPY',
-    'clientExtensions': {
-        'id' : 'trailing'
-    },
-    'units': 1,
-};
-
-let TrailingStopOrderRequest = {
-    'distance': 0.1,
-    'clientID': 'trailing',
-    'triggerCondition': 'MID',
-};
-
 exports.doTrade = async function() {
+    oa.CancelAllOrder(oa.env.accountID_sub4, 'USD_JPY');
+
     setInterval(
-        () => {oa.DoOrderMarket(
-            oa.env.accountID_sub4,
-            MarketOrderRequest,
-        )}, 1000 * 60
+        () => {
+            try{
+                oa.GetPricing(
+                    oa.env.accountID_sub4,
+                    ['USD_JPY']
+                    );
+            }catch(error){
+                console.log(error);
+            };
+        }, 1000 * 3
     );
+
     setInterval(
-        () => {oa.DoTrailingStopORder(
-            oa.env.accountID_sub4,
-            'USD_JPY',
-            TrailingStopOrderRequest
-        )}, 1000 * 30
+        () => {
+            try{
+                oa.UpdateOpenOrders(oa.env.accountID_sub4, 'USD_JPY');
+            }catch(error){
+                console.log(error);
+            };
+        }, 1000 * 3
     );
+
+    setInterval(
+        () => {
+            try{
+                let p;
+                let plist = oa.pricing();
+                if (plist == undefined){
+                    return;
+                };
+                for (p of plist){
+                    if (p.instrument === 'USD_JPY'){
+                        break;
+                    };
+                };
+                let ods = oa.GetOpenOrders();
+                if (ods.buy.state === "PENDING"){
+                    //cancel
+                    if(Number(p.bids[0].price) - Number(ods.buy.price) > 0.005){
+                        oa.CancelOrder(oa.env.accountID_sub4, ods.buy.id);
+                    };
+                };
+                if (ods.sell.state === "PENDING"){
+                    //cancel
+                    if(Number(ods.sell.price) - Number(p.asks[0].price) > 0.005){
+                        oa.CancelOrder(oa.env.accountID_sub4, ods.sell.id);
+                    };
+                };
+            }catch(error){
+                console.log(error);
+            };
+        }, 1000 * 3
+    );
+
+    setInterval(
+        () => {
+            try {
+                let ods = oa.GetOpenOrders().sell;
+                if (ods.state !== "FILLED" && ods.state !== "" && ods.state !== "CANCELLED"){
+                    return;
+                }
+                let price = 0;
+                for (let p of oa.pricing()){
+                    if (p.instrument === 'USD_JPY'){
+                        price = Number(p.asks[0].price);
+                    };
+                };
+                let OrderRequest = {
+                    'instrument': 'USD_JPY',
+                    'units': -1000,
+                    'price': (Math.floor(price*1000)/1000).toString(),
+                    // 'priceBound' : (Math.floor((price - 0.001)*1000)/1000).toString(),
+                    'takeProfitOnFill': {
+                        'price': (Math.floor((price - 0.01)*1000)/1000).toString()
+                    },
+                    'stopLossOnFill': {
+                        'price': (Math.floor((price + 0.1)*1000)/1000).toString()
+                    }
+                };
+                oa.DoMarketIfTouchedOrder(
+                    oa.env.accountID_sub4,
+                    OrderRequest
+                );
+            }catch(error){
+                console.log(error);
+            }
+        }, 1000 * 5
+    );
+
+    setInterval(
+        () => {
+            try {
+                let ods = oa.GetOpenOrders().buy;
+                if (ods.state !== "FILLED" && ods.state !== "" && ods.state !== "CANCELLED"){
+                    return;
+                }
+                let price = 0;
+                for (let p of oa.pricing()){
+                    if (p.instrument === 'USD_JPY'){
+                        price = Number(p.bids[0].price);
+                    };
+                };
+                let OrderRequest = {
+                    'instrument': 'USD_JPY',
+                    'units': 1000,
+                    'price': (Math.floor(price*1000)/1000).toString(),
+                    // 'priceBound' : (Math.floor((price - 0.001)*1000)/1000).toString(),
+                    'takeProfitOnFill': {
+                        'price': (Math.floor((price + 0.01)*1000)/1000).toString()
+                    },
+                    'stopLossOnFill': {
+                        'price': (Math.floor((price - 0.1)*1000)/1000).toString()
+                    }
+                };
+                oa.DoMarketIfTouchedOrder(
+                    oa.env.accountID_sub4,
+                    OrderRequest
+                );
+            }catch(error){
+                console.log(error);
+            }
+        }, 1000 * 5
+    );
+
     while(true){
-        await fxutil.sleep(100000);
+        await fxutil.sleep(10000);
     };
 };

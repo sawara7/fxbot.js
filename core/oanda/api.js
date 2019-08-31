@@ -21,12 +21,94 @@ const ORDER_REQUEST_2 = {
     'units': TARGET_UNIT2
 };
 
-const DoOrderMarket = async (id, orderRequest)=>{
-    ct.order.market(
+let pricing;
+exports.pricing = () =>{
+    return pricing;
+};
+
+const CancelAllOrder = async(id, pair) => {
+    ct.order.list(
+        id,
+        pair,
+        (response) => {
+            console.log(response.body);
+            for (o of response.body.orders){
+                ct.order.cancel(id, o.id, ()=>{});
+            };
+        });
+};
+exports.CancelAllOrder = CancelAllOrder;
+
+const CancelOrder = async(id, orderid) => {
+    ct.order.cancel(id, orderid, ()=>{});
+};
+exports.CancelOrder = CancelOrder;
+
+let openOrders = {
+    "buy":{
+        "id":0,
+        "state":"",
+        "price":0,
+        "time":0
+    },
+    "sell":{
+        "id":0,
+        "state":"",
+        "price":0,
+        "time":0
+    }
+}
+
+exports.GetOpenOrders = () => {
+    return openOrders;
+};
+
+exports.UpdateOpenOrders = (id,pair) =>{
+    ct.order.get(
+        id,
+        openOrders.buy.id,
+        (response) => {
+            if ("order" in response.body){
+                openOrders.buy.state = response.body.order.state;
+                openOrders.buy.price = response.body.order.price;
+                openOrders.buy.time  = response.body.order.createTime;
+            };
+        });
+    ct.order.get(
+        id,
+        openOrders.sell.id,
+        (response) => {
+            if ("order" in response.body){
+                openOrders.sell.state = response.body.order.state;
+                openOrders.sell.price = response.body.order.price;
+                openOrders.sell.time  = response.body.order.createTime;
+            };
+        });
+    
+};
+
+// const CancelAllOrder = async(id, pair) => {
+//     ct.order.list(
+//         id,
+//         pair,
+//         (response) => {
+//             console.log(response.body);
+//             for (o of response.body.orders){
+//                 ct.order.cancel(id, o.id, ()=>{});
+//             };
+//         });
+// };
+// exports.CancelAllOrder = CancelAllOrder;
+
+const DoLimitOrder = async (id, orderRequest)=>{
+    ct.order.limit(
         id,
         {
             'instrument': orderRequest.instrument,
-            'units': orderRequest.units
+            'units': orderRequest.units,
+            'price': orderRequest.price,
+            'takeProfitOnFill': orderRequest.takeProfitOnFill,
+            'stopLossOnFill': orderRequest.stopLossOnFill
         },
         (response) => {
             console.log(response.body)
@@ -34,7 +116,64 @@ const DoOrderMarket = async (id, orderRequest)=>{
     )
     return 'ok';
 };
-exports.DoOrderMarket = DoOrderMarket;
+exports.DoLimitOrder = DoLimitOrder;
+
+const DoStopOrder = async (id, orderRequest)=>{
+    ct.order.stop(
+        id,
+        {
+            'instrument': orderRequest.instrument,
+            'units': orderRequest.units,
+            'price': orderRequest.price,
+            'priceBound': orderRequest.priceBound,
+            'takeProfitOnFill': orderRequest.takeProfitOnFill,
+            'stopLossOnFill': orderRequest.stopLossOnFill
+        },
+        (response) => {
+            console.log(response.body)
+        }
+    )
+    return 'ok';
+};
+exports.DoStopOrder = DoStopOrder;
+
+const DoMarketIfTouchedOrder = async (id, orderRequest)=>{
+    ct.order.marketIfTouched(
+        id,
+        {
+            'instrument': orderRequest.instrument,
+            'units': orderRequest.units,
+            'price': orderRequest.price,
+            'priceBound': orderRequest.priceBound,
+            'takeProfitOnFill': orderRequest.takeProfitOnFill,
+            'stopLossOnFill': orderRequest.stopLossOnFill
+        },
+        (response) => {
+            if (response.statusCode === "201"){
+                if (orderRequest.units < 0){
+                    openOrders.sell.id = response.body.orderCreateTransaction.id;
+                }else{
+                    openOrders.buy.id = response.body.orderCreateTransaction.id;
+                };
+            };
+        }
+    )
+    return 'ok';
+};
+exports.DoMarketIfTouchedOrder = DoMarketIfTouchedOrder;
+
+const GetPricing = async(id, instruments) =>{
+    ct.pricing.get(
+        id,
+        {
+            'instruments' : instruments
+        },
+        (response) => {
+            pricing = response.body.prices;
+        }
+    )
+};
+exports.GetPricing = GetPricing;
 
 const DoTrailingStopOrder = async (id, pair, TrailingStopLossOrderRequest)=>{
     try {

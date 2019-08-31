@@ -3,3 +3,5 @@ node_modules/
 
 # API key and Secret ..
 _env.js
+
+package-lock.json

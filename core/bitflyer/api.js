@@ -17,12 +17,11 @@ exports.trade_result = trade_result;
 
 function changeSide(side) {
     if (side == 'BUY' || side == 'buy') {
-        return 'sell';
+        return 'SELL';
     } else if (side == 'SELL' || side == 'sell'){
-        return 'buy';
+        return 'BUY';
     };
 };
-
 exports.change_side =changeSide;
 
 async function closeAllPosition() {
@@ -68,6 +67,36 @@ exports.closeAllPosition = closeAllPosition;
     };
 };
 exports.cancelAllOrder = cancelAllOrder;
+
+exports.fetchParentOrder = async (id) => {
+    let res = await bf.private_get_getparentorders(
+        {'product_code': 'FX_BTC_JPY'}
+        );
+    for (o of res){
+        if (o.parent_order_acceptance_id === id){
+            return o;
+        };
+    };
+    return {};
+};
+
+exports.cancelParentOrder = async (id) => {
+    return await bf.private_post_cancelparentorder(
+        {
+            'product_code': 'FX_BTC_JPY',
+            'parent_order_acceptance_id': id
+        }
+    );
+};
+
+exports.closeParentOrder = async (id) => {
+    return await bf.private_post_cancelparentorder(
+        {
+            'product_code': 'FX_BTC_JPY',
+            'parent_order_acceptance_id': id
+        }
+    );
+};
 
 async function checkOrderStatus(id, symbol, status, timeout, interval, losscut){
     let time = 0;
@@ -328,3 +357,41 @@ let getSFD = function() {
 
 exports.ticker = getTicker;
 exports.sfd = getSFD;
+
+async function createStopLimitOrder(side, price, diff1, diff2, size){
+    return await bf.private_post_sendparentorder(
+        {
+        "order_method": "IFDOCO",
+        "minute_to_expire": 1000,
+        "time_in_force": "GTC",
+        "parameters": [
+        {
+            "product_code": "FX_BTC_JPY",
+            "condition_type": "LIMIT",
+            "side": side,
+            "price": price,
+            // "trigger_price": price,
+            "size": size
+        }
+        ,
+        {
+            "product_code": "FX_BTC_JPY",
+            "condition_type": "LIMIT",
+            "side": changeSide(side),
+            "price": price + diff1,
+            // "trigger_price": price + diff1,
+            "size": size
+        }
+        ,
+        {
+            "product_code": "FX_BTC_JPY",
+            "condition_type": "STOP",
+            "side": changeSide(side),
+            // "price": price + diff2,
+            "trigger_price": price + diff2,
+            "size": size
+        }
+    ]}
+    );
+};
+exports.createStopLimitOrder = createStopLimitOrder;
